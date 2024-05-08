@@ -12,29 +12,118 @@
 #				- DO NOT MAKE CHANGES TO THIS FILE.
 # ==============================CS-199==================================
 
+
 from AI import AI
 from Action import Action
+from collections import defaultdict
+import itertools
+
+class MyAI(AI):
+    def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
+        self.rowDimension = rowDimension
+        self.colDimension = colDimension
+        self.totalMines = totalMines
+        self.startX = startX
+        self.startY = startY
+        self.board = [['.' for _ in range(colDimension)] for _ in range(rowDimension)]
+        self.uncovered = set()
+        self.mines = set()
+        self.queue = set()  # Initialize queue attribute
+        self.initialize_board()
+        self.previousX, self.previousY = startX, startY
+
+    def initialize_board(self):
+        self.board[self.startX][self.startY] = 0
+        self.uncovered.add((self.startX, self.startY))
+        self.enqueue(self.startX, self.startY)
+
+    def getNeighbors(self, x, y):
+        adjacency = [-1, 0, 1]
+        neighbors = []
+        for dx in adjacency:
+            for dy in adjacency:
+                if dx != 0 or dy != 0:  # Exclude the cell (x, y) itself
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < self.rowDimension and 0 <= ny < self.colDimension:
+                        neighbors.append((nx, ny))
+        return neighbors
 
 
-class MyAI( AI ):
+    def countAdjacentMines(self, x, y):
+        count = 0
+        for nx, ny in self.getNeighbors(x, y):
+            if (nx, ny) in self.mines:
+                count += 1
+        return count
 
-	def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
+    def uncover(self, x, y):
+        self.uncovered.add((x, y))
+        print(f"Uncovering ({x}, {y}).")
+        self.enqueue(x, y)
+        return Action(AI.Action.UNCOVER, x, y)
 
-		########################################################################
-		#							YOUR CODE BEGINS						   #
-		########################################################################
-		pass
-		########################################################################
-		#							YOUR CODE ENDS							   #
-		########################################################################
+    def flag(self, x, y):
+        self.mines.add((x, y))
+        return Action(AI.Action.FLAG, x, y)
 
-		
-	def getAction(self, number: int) -> "Action Object":
+    def solve(self, x, y):
+        
+        print(f"Solving cell ({x+1}, {y+1}) with value {self.board[x][y]}") 
+        if (x, y) in self.uncovered:
+            return
+        self.uncovered.add((x, y))
+        if self.board[x][y] == 0:
+            print("Enqueuing cell due to 0 value.")
+            self.enqueue(x, y)
+            for nx, ny in self.getNeighbors(x, y):
+                self.solve(nx, ny)
+        elif self.board[x][y] != '.' and self.board[x][y] > 0:  # Check if cell is not covered and is a number
+            adjacent_mines = self.countAdjacentMines(x, y)
+            if adjacent_mines == self.board[x][y]:
+                for nx, ny in self.getNeighbors(x, y):
+                    if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
+                        self.mines.add((nx, ny))
+                        return Action(AI.Action.FLAG, nx, ny)
+            elif adjacent_mines > 0:
+                for nx, ny in self.getNeighbors(x, y):
+                    if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
+                        return self.uncover(nx, ny)
 
-		########################################################################
-		#							YOUR CODE BEGINS						   #
-		########################################################################
-		return Action(AI.Action.LEAVE)
-		########################################################################
-		#							YOUR CODE ENDS							   #
-		########################################################################
+
+    def enqueue(self, x, y):
+        for nx, ny in self.getNeighbors(x, y):
+            if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
+                self.queue.add((nx, ny))
+                print(f"Added cell ({nx}, {ny}) to the queue.")
+                
+
+    def getAction(self, number: int) -> "Action Object":
+        x, y = self.previousX, self.previousY
+        self.board[x][y] = number
+
+        if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines:
+            return Action(AI.Action.LEAVE)
+
+        action = self.solve(x, y)
+        if action:
+            self.previousX, self.previousY = action.x, action.y
+            return action
+
+        if not self.queue:
+            self.calculate_probabilities()
+
+        x, y = self.queue.pop()
+        self.previousX, self.previousY = x, y
+        
+
+       # self.enqueue(x, y)
+        return Action(AI.Action.UNCOVER, x, y)
+
+    def calculate_probabilities(self):
+        # not yet
+        pass
+
+    
+    
+    
+    
