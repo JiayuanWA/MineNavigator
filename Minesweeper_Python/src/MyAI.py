@@ -31,6 +31,7 @@ class MyAI(AI):
         self.queue = set()  # Initialize queue attribute
         self.initialize_board()
         self.previousX, self.previousY = startX, startY
+        self.queue_history = []
 
     def initialize_board(self):
         self.board[self.startX][self.startY] = 0
@@ -72,6 +73,7 @@ class MyAI(AI):
         
         print(f"Solving cell ({x+1}, {y+1}) with value {self.board[x][y]}") 
         
+
         
         if (x, y) in self.uncovered:
             print("returned becuase is in self.uncovered")
@@ -102,7 +104,7 @@ class MyAI(AI):
             
             print(f"adjacent_uncovered ({adjacent_uncovered})")
             
-            print(f"adjacent_uncovered ({adjacent_mines})")
+            print(f"adjacent_mines ({adjacent_mines})")
             
             if self.board[x][y] == adjacent_mines:
                 for nx, ny in self.getNeighbors(x, y):
@@ -138,7 +140,7 @@ class MyAI(AI):
         x, y = self.previousX, self.previousY
         self.board[x][y] = number
 
-        if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines:
+        if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines - 1:
             return Action(AI.Action.LEAVE)
         
         print("Entering Solve")
@@ -149,25 +151,59 @@ class MyAI(AI):
         if action:
             self.previousX, self.previousY = action.x, action.y
             return action
+        
+        #Implement check self.queue length, if its been the same for 10 times then call calculate_probabilities(self):
 
-        if not self.queue:
+        if not self.queue and len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines - 1:
+            print("TAKING MY CHANCESSSSSSSSSSSSS:")
             self.calculate_probabilities()
+            
+        if len(self.queue_history) >= 15 and all(length == self.queue_history[-1] for length in self.queue_history[-10:]):
+            print("Queue length has remained the same for 15 consecutive times. Recalculating probabilities...")
+            self.calculate_probabilities()
+            
 
         x, y = self.queue.pop()
         self.previousX, self.previousY = x, y
         
         print("The queue now contains:", self.queue) 
         print("The mine now contains:", self.mines) 
+        print("Tiles uncovered = ", len(self.uncovered)) 
+        
+        
+        self.queue_history.append(len(self.queue))
         
         #print("Before action:", self.uncovered)       
         return Action(AI.Action.UNCOVER, x, y)
     
 
     def calculate_probabilities(self):
-        # not yet
-        pass
+        highest_probability = 0
+        best_cell = None
 
-    
-    
-    
-    
+        for x in range(self.rowDimension):
+            for y in range(self.colDimension):
+                if (x, y) not in self.uncovered and (x, y) not in self.mines and (x, y) not in self.queue:
+                    total_neighbors = len(self.getNeighbors(x, y))
+
+                    # Count the number of uncovered or queued neighbors
+                    adjacent_uncovered = sum(1 for nx, ny in self.getNeighbors(x, y) if (nx, ny) in self.uncovered or (nx, ny) in self.queue)
+
+                    # Calculate the number of covered neighbors
+                    adjacent_covered = total_neighbors - adjacent_uncovered
+
+                    adjacent_mines = self.countAdjacentMines(x, y)
+
+                    if adjacent_covered > 0:
+                        probability = (self.totalMines - len(self.mines)) / adjacent_covered
+                        if probability > highest_probability:
+                            highest_probability = probability
+                            best_cell = (x, y)
+
+        if best_cell:
+            self.queue.add(best_cell)
+            print("My chances now contains:", best_cell) 
+            
+        else:
+            return Action(AI.Action.LEAVE)
+            
