@@ -34,7 +34,7 @@ class MyAI(AI):
         self.initialize_board()
         self.previousX, self.previousY = startX, startY
         self.queue_history = []
-
+        self.check = 0
     def initialize_board(self):
         self.board[self.startX][self.startY] = 0
         self.uncovered.add((self.startX, self.startY))
@@ -141,10 +141,31 @@ class MyAI(AI):
         #Get start
         x, y = self.previousX, self.previousY
         self.board[x][y] = number
-
+        
+        # if len(self.mines) == self.totalMines:
+        #     for nx in range(self.rowDimension):
+        #         for ny in range(self.colDimension):
+        #             if self.board[nx][ny] == '.':
+        #                 self.enqueue(nx, ny)
+                        
+                    
+            
         if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines - 1:
-            print("Goodbye")
-            return Action(AI.Action.LEAVE)
+    
+            for nx in range(self.rowDimension):
+                for ny in range(self.colDimension):
+                    if self.board[nx][ny] == '.':
+                        print("Not yet")
+                        self.check == 1
+                        self.queue.add((x, y))
+                        break
+                        
+    
+            print("value:", self.check) 
+            if self.check == 0:
+                print("Goodbye")
+                return Action(AI.Action.LEAVE)
+        
         
         #print("Entering Solve")
         action = self.solve(x, y)
