@@ -36,6 +36,7 @@ class MyAI(AI):
         self.board[self.startX][self.startY] = 0
         self.uncovered.add((self.startX, self.startY))
         self.enqueue(self.startX, self.startY)
+        print("Queue after initialize", self.queue) 
 
     def getNeighbors(self, x, y):
         adjacency = [-1, 0, 1]
@@ -79,6 +80,7 @@ class MyAI(AI):
         print("In solve, added to uncovered")
         
         if self.board[x][y] == 0:
+            self.uncovered.add((x, y))
             print("Enqueuing cell due to 0 value.")
             self.enqueue(x, y)
             for nx, ny in self.getNeighbors(x, y):
@@ -112,8 +114,11 @@ class MyAI(AI):
 
         if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines:
             return Action(AI.Action.LEAVE)
-
+        
+        print("Entering Solve")
         action = self.solve(x, y)
+        
+        print("Exiting Solve")
         
         if action:
             self.previousX, self.previousY = action.x, action.y
@@ -125,9 +130,9 @@ class MyAI(AI):
         x, y = self.queue.pop()
         self.previousX, self.previousY = x, y
         
-        print("Before: Current queue:", self.queue) 
+        print("Before action:", self.uncovered) 
        # self.enqueue(x, y)
-        self.uncovered.add((x, y))
+      
         return Action(AI.Action.UNCOVER, x, y)
 
     def calculate_probabilities(self):
