@@ -83,8 +83,8 @@ class MyAI(AI):
             self.uncovered.add((x, y))
             # print("Enqueuing cell due to 0 value.")
             self.enqueue(x, y)
-            for nx, ny in self.getNeighbors(x, y):
-                self.solve(nx, ny)
+            # for nx, ny in self.getNeighbors(x, y):
+            #     self.solve(nx, ny)
         elif self.board[x][y] != 0:
            
             total_neighbors = len(self.getNeighbors(x, y))
@@ -102,23 +102,31 @@ class MyAI(AI):
             
             print(f"adjacent_uncovered ({adjacent_uncovered})")
             
+            print(f"adjacent_uncovered ({adjacent_mines})")
+            
+            if self.board[x][y] == adjacent_mines:
+                for nx, ny in self.getNeighbors(x, y):
+                    if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines and (nx, ny) not in self.queue:
+                        self.queue.add((nx, ny))
+                
+            
             if  adjacent_covered == self.board[x][y]:
                 print(f"niceeeeee")
+                self.uncovered.add((x, y))
                 for nx, ny in self.getNeighbors(x, y):
-                    if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
+                    if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines and (nx, ny) not in self.queue:
                         self.mines.add((nx, ny))
                         print(f"added to mines")
                         
-                        #how to remove it from queiue?
-            
-
-            self.queue.add((x, y))
+            else:
+                self.queue.add((x, y))
             
 
     def enqueue(self, x, y):
         for nx, ny in self.getNeighbors(x, y):
             if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
                 self.queue.add((nx, ny))
+                self.solve(nx, ny)
                
                 # print(f"Added cell ({nx}, {ny}) to the queue.")
 
@@ -149,6 +157,7 @@ class MyAI(AI):
         self.previousX, self.previousY = x, y
         
         print("The queue now contains:", self.queue) 
+        print("The mine now contains:", self.mines) 
         
         #print("Before action:", self.uncovered)       
         return Action(AI.Action.UNCOVER, x, y)
