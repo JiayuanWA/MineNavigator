@@ -28,7 +28,9 @@ class MyAI(AI):
         self.board = [['.' for _ in range(colDimension)] for _ in range(rowDimension)]
         self.uncovered = set()
         self.mines = set()
-        self.queue = set()  # Initialize queue attribute
+        self.tobeflag = set()
+        self.queue = set() 
+        self.probability = set() 
         self.initialize_board()
         self.previousX, self.previousY = startX, startY
         self.queue_history = []
@@ -65,18 +67,16 @@ class MyAI(AI):
     #     print("Current queue:", self.queue) 
     #     return Action(AI.Action.UNCOVER, x, y)
 
-    def flag(self, x, y):
-        self.mines.add((x, y))
-        return Action(AI.Action.FLAG, x, y)
+
 
     def solve(self, x, y):
         
-        print(f"Solving cell ({x+1}, {y+1}) with value {self.board[x][y]}") 
+       # print(f"Solving cell ({x+1}, {y+1}) with value {self.board[x][y]}") 
         
 
         
         if (x, y) in self.uncovered:
-            print("returned becuase is in self.uncovered")
+          #  print("returned becuase is in self.uncovered")
             return
         
         # print("In solve, added to uncovered")
@@ -100,11 +100,11 @@ class MyAI(AI):
 
             adjacent_mines = self.countAdjacentMines(x, y)
             
-            print(f"adjacent_hidden ({adjacent_covered})")
+#             print(f"adjacent_hidden ({adjacent_covered})")
             
-            print(f"adjacent_uncovered ({adjacent_uncovered})")
+#             print(f"adjacent_uncovered ({adjacent_uncovered})")
             
-            print(f"adjacent_mines ({adjacent_mines})")
+#             print(f"adjacent_mines ({adjacent_mines})")
             
             if self.board[x][y] == adjacent_mines:
                 for nx, ny in self.getNeighbors(x, y):
@@ -118,7 +118,9 @@ class MyAI(AI):
                 for nx, ny in self.getNeighbors(x, y):
                     if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines and (nx, ny) not in self.queue:
                         self.mines.add((nx, ny))
+                        self.tobeflag.add((nx, ny))
                         print(f"added to mines")
+                    
                         
             else:
                 self.queue.add((x, y))
@@ -141,12 +143,13 @@ class MyAI(AI):
         self.board[x][y] = number
 
         if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines - 1:
+            print("Goodbye")
             return Action(AI.Action.LEAVE)
         
-        print("Entering Solve")
+        #print("Entering Solve")
         action = self.solve(x, y)
         
-        print("Exiting Solve")
+        #print("Exiting Solve")
         
         if action:
             self.previousX, self.previousY = action.x, action.y
@@ -162,13 +165,24 @@ class MyAI(AI):
             print("Queue length has remained the same for 15 consecutive times. Recalculating probabilities...")
             self.calculate_probabilities()
             
-
-        x, y = self.queue.pop()
+        
+        
+        for x, y in self.tobeflag:
+            x, y = self.tobeflag.pop()
+            return Action(AI.Action.FLAG, x, y)
+            
+    
+    
+        if len(self.probability) > 0:
+            x, y = self.probability.pop()
+        else:
+            x, y = self.queue.pop()
+        
         self.previousX, self.previousY = x, y
         
         print("The queue now contains:", self.queue) 
-        print("The mine now contains:", self.mines) 
-        print("Tiles uncovered = ", len(self.uncovered)) 
+        # print("The mine now contains:", self.mines) 
+        print("Tiles with all neibors uncovered = ", len(self.uncovered)) 
         
         
         self.queue_history.append(len(self.queue))
@@ -201,9 +215,17 @@ class MyAI(AI):
                             best_cell = (x, y)
 
         if best_cell:
-            self.queue.add(best_cell)
+
+            queue_list = list(self.probability)
+
+            queue_list.insert(0, best_cell)
+
+            self.probability = set(queue_list)
+
             print("My chances now contains:", best_cell) 
             
         else:
+            print("All mines")
             return Action(AI.Action.LEAVE)
+  
             
