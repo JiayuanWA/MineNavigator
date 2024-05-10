@@ -60,6 +60,7 @@ class MyAI(AI):
         self.uncovered.add((x, y))
         print(f"Uncovering ({x}, {y}).")
         self.enqueue(x, y)
+        print("Current queue:", self.queue) 
         return Action(AI.Action.UNCOVER, x, y)
 
     def flag(self, x, y):
@@ -69,9 +70,14 @@ class MyAI(AI):
     def solve(self, x, y):
         
         print(f"Solving cell ({x+1}, {y+1}) with value {self.board[x][y]}") 
+        
+        
         if (x, y) in self.uncovered:
+            print("returned becuase is in self.uncovered")
             return
-        self.uncovered.add((x, y))
+        
+        print("In solve, added to uncovered")
+        
         if self.board[x][y] == 0:
             print("Enqueuing cell due to 0 value.")
             self.enqueue(x, y)
@@ -95,9 +101,12 @@ class MyAI(AI):
             if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
                 self.queue.add((nx, ny))
                 print(f"Added cell ({nx}, {ny}) to the queue.")
+
                 
 
     def getAction(self, number: int) -> "Action Object":
+        
+        #Get start
         x, y = self.previousX, self.previousY
         self.board[x][y] = number
 
@@ -105,6 +114,7 @@ class MyAI(AI):
             return Action(AI.Action.LEAVE)
 
         action = self.solve(x, y)
+        
         if action:
             self.previousX, self.previousY = action.x, action.y
             return action
@@ -115,8 +125,9 @@ class MyAI(AI):
         x, y = self.queue.pop()
         self.previousX, self.previousY = x, y
         
-
+        print("Before: Current queue:", self.queue) 
        # self.enqueue(x, y)
+        self.uncovered.add((x, y))
         return Action(AI.Action.UNCOVER, x, y)
 
     def calculate_probabilities(self):
