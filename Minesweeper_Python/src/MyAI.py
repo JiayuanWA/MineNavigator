@@ -57,12 +57,12 @@ class MyAI(AI):
                 count += 1
         return count
 
-    def uncover(self, x, y):
-        self.uncovered.add((x, y))
-        print(f"Uncovering ({x}, {y}).")
-        self.enqueue(x, y)
-        print("Current queue:", self.queue) 
-        return Action(AI.Action.UNCOVER, x, y)
+    # def uncover(self, x, y):
+    #     self.uncovered.add((x, y))
+    #     print(f"Uncovering ({x}, {y}).")
+    #     self.enqueue(x, y)
+    #     print("Current queue:", self.queue) 
+    #     return Action(AI.Action.UNCOVER, x, y)
 
     def flag(self, x, y):
         self.mines.add((x, y))
@@ -77,32 +77,50 @@ class MyAI(AI):
             print("returned becuase is in self.uncovered")
             return
         
-        print("In solve, added to uncovered")
+        # print("In solve, added to uncovered")
         
         if self.board[x][y] == 0:
             self.uncovered.add((x, y))
-            print("Enqueuing cell due to 0 value.")
+            # print("Enqueuing cell due to 0 value.")
             self.enqueue(x, y)
             for nx, ny in self.getNeighbors(x, y):
                 self.solve(nx, ny)
-        elif self.board[x][y] != '.' and self.board[x][y] > 0:  # Check if cell is not covered and is a number
+        elif self.board[x][y] != 0:
+           
+            total_neighbors = len(self.getNeighbors(x, y))
+
+            # Count the number of uncovered or queued neighbors
+            adjacent_uncovered = sum(1 for nx, ny in self.getNeighbors(x, y) if (nx, ny) in self.uncovered or (nx, ny) in self.queue)
+
+            # Calculate the number of covered neighbors
+            adjacent_covered = total_neighbors - adjacent_uncovered
+
+
             adjacent_mines = self.countAdjacentMines(x, y)
-            if adjacent_mines == self.board[x][y]:
+            
+            print(f"adjacent_hidden ({adjacent_covered})")
+            
+            print(f"adjacent_uncovered ({adjacent_uncovered})")
+            
+            if  adjacent_covered == self.board[x][y]:
+                print(f"niceeeeee")
                 for nx, ny in self.getNeighbors(x, y):
                     if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
                         self.mines.add((nx, ny))
-                        return Action(AI.Action.FLAG, nx, ny)
-            elif adjacent_mines > 0:
-                for nx, ny in self.getNeighbors(x, y):
-                    if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
-                        return self.uncover(nx, ny)
+                        print(f"added to mines")
+                        
+                        #how to remove it from queiue?
+            
 
+            self.queue.add((x, y))
+            
 
     def enqueue(self, x, y):
         for nx, ny in self.getNeighbors(x, y):
             if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
                 self.queue.add((nx, ny))
-                print(f"Added cell ({nx}, {ny}) to the queue.")
+               
+                # print(f"Added cell ({nx}, {ny}) to the queue.")
 
                 
 
@@ -130,10 +148,11 @@ class MyAI(AI):
         x, y = self.queue.pop()
         self.previousX, self.previousY = x, y
         
-        print("Before action:", self.uncovered) 
-       # self.enqueue(x, y)
-      
+        print("The queue now contains:", self.queue) 
+        
+        #print("Before action:", self.uncovered)       
         return Action(AI.Action.UNCOVER, x, y)
+    
 
     def calculate_probabilities(self):
         # not yet
