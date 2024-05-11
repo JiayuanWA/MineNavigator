@@ -39,7 +39,7 @@ class MyAI(AI):
         self.board[self.startX][self.startY] = 0
         self.uncovered.add((self.startX, self.startY))
         self.enqueue(self.startX, self.startY)
-        print("Queue after initialize", self.queue) 
+       # print("Queue after initialize", self.queue) 
 
     def getNeighbors(self, x, y):
         adjacency = [-1, 0, 1]
@@ -113,13 +113,13 @@ class MyAI(AI):
                 
             
             if  adjacent_covered == self.board[x][y]:
-                print(f"niceeeeee")
+               # print(f"niceeeeee")
                 self.uncovered.add((x, y))
                 for nx, ny in self.getNeighbors(x, y):
                     if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines and (nx, ny) not in self.queue:
                         self.mines.add((nx, ny))
                         self.tobeflag.add((nx, ny))
-                        print(f"added to mines")
+                      #  print(f"added to mines")
                     
                         
             else:
@@ -150,21 +150,22 @@ class MyAI(AI):
                         
                     
             
-        if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines - 1:
-    
-            for nx in range(self.rowDimension):
-                for ny in range(self.colDimension):
-                    if self.board[nx][ny] == '.':
-                        print("Not yet")
-                        self.check == 1
-                        self.queue.add((x, y))
-                        break
+        if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines:
+            return Action(AI.Action.LEAVE)
+        
+#             for nx in range(self.rowDimension):
+#                 for ny in range(self.colDimension):
+#                     if self.board[nx][ny] == '.':
+#                      #   print("Not yet")
+#                         self.check == 1
+#                         self.queue.add((x, y))
+#                         break
                         
     
-            print("value:", self.check) 
-            if self.check == 0:
-                print("Goodbye")
-                return Action(AI.Action.LEAVE)
+#            # print("value:", self.check) 
+#             if self.check == 0:
+#               #  print("Goodbye")
+#                 return Action(AI.Action.LEAVE)
         
         
         #print("Entering Solve")
@@ -179,11 +180,11 @@ class MyAI(AI):
         #Implement check self.queue length, if its been the same for 10 times then call calculate_probabilities(self):
 
         if not self.queue and len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines - 1:
-            print("TAKING MY CHANCESSSSSSSSSSSSS:")
+           # print("TAKING MY CHANCESSSSSSSSSSSSS:")
             self.calculate_probabilities()
             
         if len(self.queue_history) >= 15 and all(length == self.queue_history[-1] for length in self.queue_history[-10:]):
-            print("Queue length has remained the same for 15 consecutive times. Recalculating probabilities...")
+          #  print("Queue length has remained the same for 15 consecutive times. Recalculating probabilities...")
             self.calculate_probabilities()
             
         
@@ -193,22 +194,25 @@ class MyAI(AI):
             return Action(AI.Action.FLAG, x, y)
             
     
-    
+        #print("len(self.probability)", len(self.probability) )
         if len(self.probability) > 0:
             x, y = self.probability.pop()
         else:
-            x, y = self.queue.pop()
+            if len(self.queue) > 0:
+                x, y = self.queue.pop()
         
         self.previousX, self.previousY = x, y
         
-        print("The queue now contains:", self.queue) 
+       # print("The queue now contains:", self.queue) 
         # print("The mine now contains:", self.mines) 
-        print("Tiles with all neibors uncovered = ", len(self.uncovered)) 
+      #  print("Tiles with all neibors uncovered = ", len(self.uncovered)) 
         
         
         self.queue_history.append(len(self.queue))
         
-        #print("Before action:", self.uncovered)       
+        #print("Before action:", self.uncovered)  
+        self.score = (self.colDimension * self.rowDimension) - self.totalMines
+       # print("Score should end with 1:", self.score)  
         return Action(AI.Action.UNCOVER, x, y)
     
 
@@ -243,10 +247,10 @@ class MyAI(AI):
 
             self.probability = set(queue_list)
 
-            print("My chances now contains:", best_cell) 
+         #   print("My chances now contains:", best_cell) 
             
         else:
-            print("All mines")
+         #   print("All mines")
             return Action(AI.Action.LEAVE)
   
             
