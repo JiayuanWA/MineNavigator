@@ -12,245 +12,389 @@
 #				- DO NOT MAKE CHANGES TO THIS FILE.
 # ==============================CS-199==================================
 
-
+import random
+from collections import deque
 from AI import AI
 from Action import Action
-from collections import defaultdict
-import itertools
+
+class Square:
+    def __init__(self):
+        self.x = None
+        self.y = None
+        self.constant = None
+        self.original_constant = None
+        self.nearby_bumb = 0
+        self.val = None
+        self.uncovered = False
+        self.flagged = False
+        self.constraints = []
 
 class MyAI(AI):
     def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
         self.rowDimension = rowDimension
         self.colDimension = colDimension
         self.totalMines = totalMines
-        self.startX = startX
-        self.startY = startY
-        self.board = [['.' for _ in range(colDimension)] for _ in range(rowDimension)]
-        self.uncovered = set()
-        self.mines = set()
-        self.tobeflag = set()
-        self.queue = set() 
-        self.probability = set() 
-        self.initialize_board()
-        self.previousX, self.previousY = startX, startY
-        self.queue_history = []
-        self.check = 0
-    def initialize_board(self):
-        self.board[self.startX][self.startY] = 0
-        self.uncovered.add((self.startX, self.startY))
-        self.enqueue(self.startX, self.startY)
-       # print("Queue after initialize", self.queue) 
+        self.starting_point = (startX, startY)
+        self.board = {}
 
-    def getNeighbors(self, x, y):
-        adjacency = [-1, 0, 1]
+        for i in range(self.colDimension):
+            for j in range(self.rowDimension):
+                s = Square()
+                s.x = i
+                s.y = j
+                s.constant = None
+                s.original_constant = None
+                s.nearby_bumb = 0
+                s.constraints = self.get_neighbors(i, j)
+                self.board[(i, j)] = s
+                
+        self.moves = []
+        self.path_uncovered = []
+        self.mines_flagged = set()
+        self.marked_squares = set()
+        self.marked_count = {}
+        self.probed_squares = set()
+        self.num_mines_flagged = 0
+        self.squares_to_probe = [self.starting_point]
+        self.previous_square = None
+
+    def get_neighbors(self, x, y):
         neighbors = []
-        for dx in adjacency:
-            for dy in adjacency:
-                if dx != 0 or dy != 0:  # Exclude the cell (x, y) itself
-                    nx, ny = x + dx, y + dy
-                    if 0 <= nx < self.rowDimension and 0 <= ny < self.colDimension:
-                        neighbors.append((nx, ny))
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if (dx != 0 or dy != 0) and (0 <= x + dx < self.rowDimension) and (0 <= y + dy < self.colDimension):
+                    neighbors.append((x + dx, y + dy))
         return neighbors
 
+    def getAction(self, number: int) -> "Action":
+        if self.previous_square:
+            self.uncover_square(self.previous_square, number)
 
-    def countAdjacentMines(self, x, y):
-        count = 0
-        for nx, ny in self.getNeighbors(x, y):
-            if (nx, ny) in self.mines:
-                count += 1
-        return count
-
-    # def uncover(self, x, y):
-    #     self.uncovered.add((x, y))
-    #     print(f"Uncovering ({x}, {y}).")
-    #     self.enqueue(x, y)
-    #     print("Current queue:", self.queue) 
-    #     return Action(AI.Action.UNCOVER, x, y)
-
-
-
-    def solve(self, x, y):
+        # Process straightforward uncovering until there are no more safe squares to uncover
+        while self.squares_to_probe:
+            square = self.squares_to_probe.pop()
+            x, y = square
+            self.previous_square = (x, y)
+            print("Trying simplify_constraints")
+            self.simplify_constraints()
+            current_square = self.get_current_square(x, y)
+            if current_square.flagged:
+                return Action(AI.Action.FLAG, x, y)     
+            return Action(AI.Action.UNCOVER, x, y)
         
-       # print(f"Solving cell ({x+1}, {y+1}) with value {self.board[x][y]}") 
-        
+        if len(self.moves) > 0 and self.totalMines > 0:
+            print("Searching")
+            self.search()
+            
 
-        
-        if (x, y) in self.uncovered:
-          #  print("returned becuase is in self.uncovered")
+        if not self.squares_to_probe:
+            if not self.moves:
+                print("No more safe moves. Leaving the game.")
+                return Action(AI.Action.LEAVE)
+
+
+
+
+    def uncover_square(self, square, number):
+        if square in self.probed_squares:
             return
+        x, y = square
         
-        # print("In solve, added to uncovered")
+        self.probed_squares.add(square)
+        self.path_uncovered.append((square, 'uncovered'))
         
-        if self.board[x][y] == 0:
-            self.uncovered.add((x, y))
-            # print("Enqueuing cell due to 0 value.")
-            self.enqueue(x, y)
-            # for nx, ny in self.getNeighbors(x, y):
-            #     self.solve(nx, ny)
-        elif self.board[x][y] != 0:
-           
-            total_neighbors = len(self.getNeighbors(x, y))
-
-            # Count the number of uncovered or queued neighbors
-            adjacent_uncovered = sum(1 for nx, ny in self.getNeighbors(x, y) if (nx, ny) in self.uncovered or (nx, ny) in self.queue)
-
-            # Calculate the number of covered neighbors
-            adjacent_covered = total_neighbors - adjacent_uncovered
-
-
-            adjacent_mines = self.countAdjacentMines(x, y)
+        current = self.get_current_square(x, y)
+        current.uncovered = True
+        current.original_constant = number
+        current.constant = number - current.nearby_bumb
+        self.mark_square_as_safe(square)
+        if current.constant == 0:
             
-#             print(f"adjacent_hidden ({adjacent_covered})")
-            
-#             print(f"adjacent_uncovered ({adjacent_uncovered})")
-            
-#             print(f"adjacent_mines ({adjacent_mines})")
-            
-            if self.board[x][y] == adjacent_mines:
-                for nx, ny in self.getNeighbors(x, y):
-                    if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines and (nx, ny) not in self.queue:
-                        self.queue.add((nx, ny))
+            neighbors = self.get_neighbors(x, y)
+            for n in neighbors:
+                if n not in self.probed_squares and n not in self.squares_to_probe and n not in self.mines_flagged:
+                    self.squares_to_probe.append(n)
+                    print(f"Adding neighbor {n} to probe list")
+        else:
+            if current not in self.moves:
+                self.moves.append(current)
+
+
+    def get_current_square(self, x, y):
+        return self.board[(x, y)]
+    
+    def mark_square_as_safe(self, square):
+        x, y = square
+        current_square = self.get_current_square(x, y)
+        current_square.val = 0
+        current_square.uncovered = True
+
+        neighbors = self.get_neighbors(x, y)
+        for nx, ny in neighbors:
+            neighbor_square = self.get_current_square(nx, ny)
+            if square in neighbor_square.constraints:
+                neighbor_square.constraints.remove(square)
+    
+    def mark_square_as_mine(self, square):
+        self.path_uncovered.append((square,'flagged'))
+        self.num_mines_flagged += 1
+        self.totalMines -= 1
+        self.mines_flagged.add(square)
+        self.mark_square(square,is_mine=True)
+        return
+
+
+
+
+    def simplify_constraints(self):
+        constraints_to_remove = set()
+        for move in self.moves:
+            if len(move.constraints) == move.constant:
+                print("These are mines")
+                while move.constraints:
+                    square = move.constraints.pop()
+                    self.mark_square_as_mine(square)
+                constraints_to_remove.add(move)
+            elif move.constant == 0:
+                print("All safe")
+                while move.constraints:
+                    square = move.constraints.pop()
+                    self.squares_to_probe.append(square)
+                constraints_to_remove.add(move)
+        for m in constraints_to_remove:
+            self.moves.remove(m)
+
+        constraints_to_remove = set()
+        if len(self.moves) > 1:
+            i = 0
+            j = i + 1
+            while i < len(self.moves):
+                while j < len(self.moves):
+                    c1 = self.moves[i]
+                    c2 = self.moves[j]
+                    to_remove = self.simplify(c1, c2)
+                    if to_remove:
+                        constraints_to_remove.update(to_remove)
+                    j += 1
+                i += 1
+                j = i + 1
+        for m in constraints_to_remove:
+            self.moves.remove(m)
+        return
+
+    def simplify(self, c1, c2):
+        if c1 == c2:
+            return
+        to_remove = set()
+        c1_constraints = set(c1.constraints)
+        c2_constraints = set(c2.constraints)
+        if c1_constraints and c2_constraints:
+            if c1_constraints.issubset(c2_constraints):
+                c2.constraints = list(c2_constraints - c1_constraints)
+                c2.constant -= c1.constant
+                if c2.constant == 0 and len(c2.constraints) > 0:
+                    while c2.constraints:
+                        c = c2.constraints.pop()
+                        if c not in self.squares_to_probe and c not in self.probed_squares:
+                            self.squares_to_probe.append(c)
+                    to_remove.add(c2)
+                elif c2.constant > 0 and c2.constant == len(c2.constraints):
+                    while c2.constraints:
+                        c = c2.constraints.pop()
+                        self.mark_square_as_mine(c)
+                    to_remove.add(c2)
+                if c1.constant > 0 and c1.constant == len(c1.constraints):
+                    while c1.constraints:
+                        c = c1.constraints.pop()
+                        self.mark_square_as_mine(c)
+                    to_remove.add(c1)
+                return to_remove
+            elif c2_constraints.issubset(c1_constraints):
+                return self.simplify(c2, c1)
+        return to_remove
+    
+    
+    def mark_square(self, square, is_mine=False):
+        x, y = square
+        if (x, y) not in self.marked_count:
+            self.marked_count[(x, y)] = 1
+        else:
+            self.marked_count[(x, y)] += 1
+        self.marked_squares.add(square)
+        current_square = self.get_current_square(x, y)
+
+        if current_square.val is not None:
+            return
+        else:
+            if is_mine:
+                current_square.val = 1
+                current_square.flagged = True
                 
-            
-            if  adjacent_covered == self.board[x][y]:
-               # print(f"niceeeeee")
-                self.uncovered.add((x, y))
-                for nx, ny in self.getNeighbors(x, y):
-                    if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines and (nx, ny) not in self.queue:
-                        self.mines.add((nx, ny))
-                        self.tobeflag.add((nx, ny))
-                      #  print(f"added to mines")
-                    
-                        
             else:
-                self.queue.add((x, y))
-            
+                current_square.val = 0
+                current_square.uncovered = True
 
-    def enqueue(self, x, y):
-        for nx, ny in self.getNeighbors(x, y):
-            if (nx, ny) not in self.uncovered and (nx, ny) not in self.mines:
-                self.queue.add((nx, ny))
-                self.solve(nx, ny)
-               
-                # print(f"Added cell ({nx}, {ny}) to the queue.")
+            neighbors = self.get_neighbors(x, y)
+            for neighbor in neighbors:
+                nx, ny = neighbor
+                neighbor_square = self.get_current_square(nx, ny)
+                if (x, y) in neighbor_square.constraints:
+                    neighbor_square.constraints.remove(square)
+                    if is_mine:
+                        if neighbor_square.constant is not None:
+                            neighbor_square.constant -= 1
+                        else:
+                            print("nearby_bumb +1")
+                            neighbor_square.nearby_bumb += 1
+            x, y = square
+            current_square = self.get_current_square(x, y)
+            if is_mine:
+                return Action(AI.Action.FLAG, x, y)
 
-                
 
-    def getAction(self, number: int) -> "Action Object":
-        
-        #Get start
-        x, y = self.previousX, self.previousY
-        self.board[x][y] = number
-        
-        # if len(self.mines) == self.totalMines:
-        #     for nx in range(self.rowDimension):
-        #         for ny in range(self.colDimension):
-        #             if self.board[nx][ny] == '.':
-        #                 self.enqueue(nx, ny)
-                        
-                    
-            
-        if len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines:
-            return Action(AI.Action.LEAVE)
-        
-#             for nx in range(self.rowDimension):
-#                 for ny in range(self.colDimension):
-#                     if self.board[nx][ny] == '.':
-#                      #   print("Not yet")
-#                         self.check == 1
-#                         self.queue.add((x, y))
-#                         break
-                        
-    
-#            # print("value:", self.check) 
-#             if self.check == 0:
-#               #  print("Goodbye")
-#                 return Action(AI.Action.LEAVE)
-        
-        
-        #print("Entering Solve")
-        action = self.solve(x, y)
-        
-        #print("Exiting Solve")
-        
-        if action:
-            self.previousX, self.previousY = action.x, action.y
-            return action
-        
-        #Implement check self.queue length, if its been the same for 10 times then call calculate_probabilities(self):
+    def search(self):
+        # Backtracking for all solutions with the remaining squares
+        leftovers = {}
+        # Make a list of unknown constraints
+        for m in self.moves:
+            if m.constraints:
+                for constraint in m.constraints:
+                    if constraint not in leftovers:
+                        leftovers[constraint] = 1
+                    else:
+                        leftovers[constraint] += 1
+        squares = list(leftovers.keys())
+        mines_left = self.totalMines - self.num_mines_flagged
+        squares_left = len(squares)
 
-        if not self.queue and len(self.uncovered) == (self.rowDimension * self.colDimension) - self.totalMines - 1:
-           # print("TAKING MY CHANCESSSSSSSSSSSSS:")
-            self.calculate_probabilities()
-            
-        if len(self.queue_history) >= 15 and all(length == self.queue_history[-1] for length in self.queue_history[-10:]):
-          #  print("Queue length has remained the same for 15 consecutive times. Recalculating probabilities...")
-            self.calculate_probabilities()
-            
-        
-        
-        for x, y in self.tobeflag:
-            x, y = self.tobeflag.pop()
-            return Action(AI.Action.FLAG, x, y)
-            
-    
-        #print("len(self.probability)", len(self.probability) )
-        if len(self.probability) > 0:
-            x, y = self.probability.pop()
+        def backtrack(comb):
+            if len(comb) > squares_left:
+                return
+            elif sum(comb) > mines_left:
+                return
+            else:    
+                for choice in [0, 1]:
+                    comb.append(choice)
+                    if sum(comb) == mines_left and len(comb) == squares_left:
+                        valid = self.check_solution_validity(squares, comb)
+                        if valid:
+                            # Only keep valid solutions
+                            c = comb.copy()
+                            solutions.append(c)
+                    backtrack(comb)
+                    comb.pop()
+
+        solutions = []
+        # Backtrack to find solutions if there are fewer mines than squares
+        if mines_left < squares_left:
+            backtrack([])
+
+        if solutions:
+            # Check if any squares are safe in all solutions
+            square_solution_counts = {}
+            for s in range(len(solutions)):
+                for sq in range(len(solutions[s])):
+                    current_square = squares[sq]
+                    if current_square not in square_solution_counts:
+                        square_solution_counts[current_square] = solutions[s][sq]
+                    else:
+                        square_solution_counts[current_square] += solutions[s][sq]
+            added_safe_squares = False
+            for square, count in square_solution_counts.items():
+                if count == 0:
+                    added_safe_squares = True
+                    self.squares_to_probe.append(square)
+            if not added_safe_squares:
+                # Pick a random solution and probe safe squares
+                random_solution = random.randint(0, len(solutions) - 1)
+                comb = solutions[random_solution]
+                for square, value in zip(squares, comb):
+                    if value == 0:
+                        # Currently just adding all squares marked as safe in the first solution in list
+                        self.squares_to_probe.append(square)
         else:
-            if len(self.queue) > 0:
-                x, y = self.queue.pop()
-        
-        self.previousX, self.previousY = x, y
-        
-       # print("The queue now contains:", self.queue) 
-        # print("The mine now contains:", self.mines) 
-      #  print("Tiles with all neibors uncovered = ", len(self.uncovered)) 
-        
-        
-        self.queue_history.append(len(self.queue))
-        
-        #print("Before action:", self.uncovered)  
-        self.score = (self.colDimension * self.rowDimension) - self.totalMines
-       # print("Score should end with 1:", self.score)  
-        return Action(AI.Action.UNCOVER, x, y)
+            # No solutions, so pick a random square
+            squares_left = list(set(self.board.keys()) - self.marked_squares)
+            random_square = random.randint(0, len(squares_left) - 1)
+            next_square = squares_left[random_square]
+            self.squares_to_probe.append(next_square)
+
+    def check_solution_validity(self,squares,comb):
+        """check each solution from backtracking to make sure they don't violate constraints"""
+        all_valid = False
+        for square,value in zip(squares,comb):
+            all_valid = self.meets_constraints(square,value)
+        #after checking validity, set the square's val back to None
+        for square in squares:
+            x,y = square
+            sq = self.get_current_square(x,y)
+            sq.val = None
+        return all_valid
     
+    def meets_constraints(self, variable, val):
+        """Sets the variable to the value {0,1} and checks to see if it violates constraints"""
+        x, y = variable
+        square = self.get_current_square(x, y)
+        square.val = val
+        neighbors = self.get_neighbors(x, y)
 
-    def calculate_probabilities(self):
-        highest_probability = 0
-        best_cell = None
+        print(f"Variable: {variable}, Value: {val}")
+        print(f"Square: ({x}, {y}), Value set to: {square.val}")
+        print(f"Neighbors: {neighbors}")
 
-        for x in range(self.rowDimension):
-            for y in range(self.colDimension):
-                if (x, y) not in self.uncovered and (x, y) not in self.mines and (x, y) not in self.queue:
-                    total_neighbors = len(self.getNeighbors(x, y))
+        for n in neighbors:
+            nx, ny = n
+            neighbor_square = self.get_current_square(nx, ny)
+            neighbor_constant = neighbor_square.original_constant
 
-                    # Count the number of uncovered or queued neighbors
-                    adjacent_uncovered = sum(1 for nx, ny in self.getNeighbors(x, y) if (nx, ny) in self.uncovered or (nx, ny) in self.queue)
+            print(f"Neighbor: ({nx}, {ny}), Original Constant: {neighbor_constant}, Value: {neighbor_square.val}")
 
-                    # Calculate the number of covered neighbors
-                    adjacent_covered = total_neighbors - adjacent_uncovered
+            # Only look at neighbors that are uncovered and aren't mines
+            if neighbor_square.val is not None and neighbor_square.val != 1:
+                mines, safe, unknown = self.get_neighbor_count((nx, ny))
 
-                    adjacent_mines = self.countAdjacentMines(x, y)
+                print(f"Neighbor Counts - Mines: {mines}, Safe: {safe}, Unknown: {unknown}")
 
-                    if adjacent_covered > 0:
-                        probability = (self.totalMines - len(self.mines)) / adjacent_covered
-                        if probability > highest_probability:
-                            highest_probability = probability
-                            best_cell = (x, y)
+                if mines > neighbor_constant:
+                    # Violation: too many mines
+                    print(f"Violation: Too many mines at ({nx}, {ny}). Mines: {mines}, Constant: {neighbor_constant}")
+                    return False
+                elif (neighbor_constant - mines) > unknown:
+                    # Violation: not enough mines
+                    print(f"Violation: Not enough mines at ({nx}, {ny}). Mines: {mines}, Unknown: {unknown}")
+                    return False
 
-        if best_cell:
+        print("No violations found.")
+        return True
 
-            queue_list = list(self.probability)
+    def get_neighbor_count(self, variable):
+        """
+        Return count of mines, safe squares, and unknown squares around the variable
+        """
+        nx, ny = variable
+        # Get its neighbors
+        nbors = self.ms.get_neighbors(nx, ny)
+        mine_count = 0
+        unknown_count = 0
+        safe_count = 0
 
-            queue_list.insert(0, best_cell)
+        print(f"Variable: {variable}")
+        print(f"Neighbors: {nbors}")
 
-            self.probability = set(queue_list)
+        for nb in nbors:
+            nbx, nby = nb
+            nbor_square = self.get_current_square(nbx, nby)
 
-         #   print("My chances now contains:", best_cell) 
-            
-        else:
-         #   print("All mines")
-            return Action(AI.Action.LEAVE)
-  
-            
+            print(f"Neighbor: ({nbx}, {nby}), Value: {nbor_square.val}")
+
+            # TODO - need to take into account unknowns
+            if nbor_square.val == 1:
+                mine_count += 1
+            elif nbor_square.val == 0:
+                safe_count += 1
+            elif nbor_square.val is None:
+                unknown_count += 1
+
+        print(f"Mine Count: {mine_count}, Safe Count: {safe_count}, Unknown Count: {unknown_count}")
+
+        return mine_count, safe_count, unknown_count
