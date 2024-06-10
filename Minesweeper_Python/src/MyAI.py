@@ -31,9 +31,9 @@ class Square:
 class MyAI(AI):
     def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
         #we have 16 rows
-        print(f"rows i have {rowDimension}")
+        #print(f"rows i have {rowDimension}")
         self.rowDimension = rowDimension
-        print(f"col i have {colDimension}")
+        #print(f"col i have {colDimension}")
         #we have 30 columns
         self.colDimension = colDimension
         self.totalMines = totalMines
@@ -72,34 +72,34 @@ class MyAI(AI):
 
     
     def getAction(self, number: int) -> "Action":
-        print(f"total_mines {self.totalMines}")
-        print(f"path_uncovered {len(self.probed_squares)}")
+        #print(f"total_mines {self.totalMines}")
+        #print(f"path_uncovered {len(self.probed_squares)}")
         
         while len(self.probed_squares) < self.win: 
             
             if self.previous_square:
-                self.uncover_square(self.previous_square, number)
+                self.straightforward(self.previous_square, number)
     
             while self.squares_to_probe:
    
                 square = self.squares_to_probe.pop()
                 x, y = square
                 self.previous_square = (x, y)
-                self.simplify_constraints()
-                print(f"Squares to probe: {self.squares_to_probe}")
+                self.constraint_check()
+                #print(f"Squares to probe: {self.squares_to_probe}")
                 
-                print(f"self.mines_flagged: {self.mines_flagged}")
-                print(f"X is: {x}, y is {y}")
+                #print(f"self.mines_flagged: {self.mines_flagged}")
+                #print(f"X is: {x}, y is {y}")
                 return Action(AI.Action.UNCOVER, x, y)
             
             if not self.squares_to_probe:
-                print("probabilities logic")
+                #print("probabilities logic")
                 probabilities = self.calculate_probabilities()
                 best_square = min(probabilities, key=probabilities.get)
                 #print(f"Best pick based on probabilities: {best_square} with probability {probabilities[best_square]}")
                 x, y = best_square
                 self.previous_square = (x, y)
-                self.simplify_constraints()
+                self.constraint_check()
                 
                 if probabilities[best_square] == 1:
                     #print(f"Probability found a mine at {best_square}")
@@ -115,7 +115,7 @@ class MyAI(AI):
     
         return Action(AI.Action.LEAVE)
 
-    def uncover_square(self, square, number):
+    def straightforward(self, square, number):
         if square in self.probed_squares:
             return
         x, y = square
@@ -127,7 +127,7 @@ class MyAI(AI):
         current.uncovered = True
         current.original_constant = number
         current.constant = number - current.nearby_bumb
-        self.mark_square_as_safe(square)
+        self.is_safe(square)
         if current.constant == 0:
             
             neighbors = self.get_neighbors(x, y)
@@ -147,10 +147,9 @@ class MyAI(AI):
         return self.board[(x, y)]
     
         
-    def mark_square_as_safe(self, square):
+    def is_safe(self, square):
         x, y = square
         current_square = self.get_current_square(x, y)
-        current_square.val = 0
         current_square.uncovered = True
 
         neighbors = self.get_neighbors(x, y)
@@ -159,7 +158,7 @@ class MyAI(AI):
             if square in neighbor_square.constraints:
                 neighbor_square.constraints.remove(square)
     
-    def mark_square_as_mine(self, square):
+    def is_mine(self, square):
         x, y = square
         current_square = self.get_current_square(x, y)
 
@@ -174,71 +173,71 @@ class MyAI(AI):
 
 
 
-    def simplify_constraints(self):
-        constraints_to_remove = set()
+    def constraint_check(self):
+        remove_list = set()
         for move in self.moves:
             if len(move.constraints) == move.constant:
                 #print(f"These are mines around me {move}")
                 while move.constraints:
                     square = move.constraints.pop()
-                    self.mark_square_as_mine(square)
-                constraints_to_remove.add(move)
+                    self.is_mine(square)
+                remove_list.add(move)
             elif move.constant == 0:
                 #print("All safe")
                 while move.constraints:
                     square = move.constraints.pop()
                     self.squares_to_probe.append(square)
-                constraints_to_remove.add(move)
-        for m in constraints_to_remove:
+                remove_list.add(move)
+        for m in remove_list:
             self.moves.remove(m)
 
-        constraints_to_remove = set()
+        remove_list = set()
         if len(self.moves) > 1:
             i = 0
             j = i + 1
             while i < len(self.moves):
                 while j < len(self.moves):
-                    c1 = self.moves[i]
-                    c2 = self.moves[j]
-                    to_remove = self.simplify(c1, c2)
+                    a = self.moves[i]
+                    b = self.moves[j]
+                    to_remove = self.simplify(a, b)
                     if to_remove:
-                        constraints_to_remove.update(to_remove)
+                        remove_list.update(to_remove)
                     j += 1
                 i += 1
                 j = i + 1
-        for m in constraints_to_remove:
+        for m in remove_list:
             self.moves.remove(m)
         return
 
-    def simplify(self, c1, c2):
-        if c1 == c2:
+    def simplify(self, a, b):
+        if a == b:
             return
         to_remove = set()
-        c1_constraints = set(c1.constraints)
-        c2_constraints = set(c2.constraints)
-        if c1_constraints and c2_constraints:
-            if c1_constraints.issubset(c2_constraints):
-                c2.constraints = list(c2_constraints - c1_constraints)
-                c2.constant -= c1.constant
-                if c2.constant == 0 and len(c2.constraints) > 0:
-                    while c2.constraints:
-                        c = c2.constraints.pop()
+        a_constraints = set(a.constraints)
+        b_constraints = set(b.constraints)
+        if a_constraints and b_constraints:
+            if a_constraints.issubset(b_constraints):
+                b.constraints = list(b_constraints - a_constraints)
+                b.constant -= a.constant
+                if b.constant == 0 and len(b.constraints) > 0:
+                    while b.constraints:
+                        c = b.constraints.pop()
                         if c not in self.squares_to_probe and c not in self.probed_squares:
                             self.squares_to_probe.append(c)
-                    to_remove.add(c2)
-                elif c2.constant > 0 and c2.constant == len(c2.constraints):
-                    while c2.constraints:
-                        c = c2.constraints.pop()
-                        self.mark_square_as_mine(c)
-                    to_remove.add(c2)
-                if c1.constant > 0 and c1.constant == len(c1.constraints):
-                    while c1.constraints:
-                        c = c1.constraints.pop()
-                        self.mark_square_as_mine(c)
-                    to_remove.add(c1)
+                    to_remove.add(b)
+                elif b.constant > 0 and b.constant == len(b.constraints):
+                    while b.constraints:
+                        c = b.constraints.pop()
+                        self.is_mine(c)
+                    to_remove.add(b)
+                if a.constant > 0 and a.constant == len(a.constraints):
+                    while a.constraints:
+                        c = a.constraints.pop()
+                        self.is_mine(c)
+                    to_remove.add(a)
                 return to_remove
-            elif c2_constraints.issubset(c1_constraints):
-                return self.simplify(c2, c1)
+            elif b_constraints.issubset(a_constraints):
+                return self.simplify(b, a)
         return to_remove
     
     
